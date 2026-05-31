@@ -158,6 +158,21 @@
   .day-hero .io { display:flex; gap:10px; margin-top:14px; position:relative; }
   .day-hero .io div { flex:1; background:rgba(255,255,255,.18); border-radius:13px; padding:8px; font-size:12px; font-weight:700; }
   .day-hero .io .v { font-family:'Quicksand'; font-size:16px; margin-top:2px; }
+
+  /* Settings / backup */
+  .info-box { background:var(--surface2); border-radius:14px; padding:14px 16px; margin-bottom:18px; font-size:13px; font-weight:600; color:var(--ink-soft); line-height:1.6; }
+  .info-box b { color:var(--green-deep); }
+  .big-btn { width:100%; padding:15px; border-radius:15px; font-family:'Quicksand'; font-size:15px; font-weight:700; cursor:pointer; border:none; margin-bottom:6px; }
+  .big-btn.save-style { background:linear-gradient(135deg,var(--green),var(--green-deep)); color:#fff; }
+  .big-btn.load-style { background:var(--in-bg); color:var(--in); border:2px solid var(--in); }
+  .hint { font-size:11.5px; color:var(--muted); font-weight:600; margin:0 4px 16px; line-height:1.5; }
+  .reminder-row { display:flex; align-items:center; justify-content:space-between; background:var(--surface2); border-radius:14px; padding:14px 16px; margin-bottom:14px; font-size:13.5px; font-weight:700; color:var(--ink); }
+  .switch { position:relative; display:inline-block; width:48px; height:28px; flex-shrink:0; }
+  .switch input { opacity:0; width:0; height:0; }
+  .slider { position:absolute; inset:0; background:var(--line); border-radius:28px; transition:.2s; cursor:pointer; }
+  .slider:before { content:''; position:absolute; height:22px; width:22px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.2s; box-shadow:0 1px 3px rgba(0,0,0,.2); }
+  .switch input:checked + .slider { background:var(--green-deep); }
+  .switch input:checked + .slider:before { transform:translateX(20px); }
 </style>
 </head>
 <body>
@@ -167,7 +182,10 @@
       <div class="greet">Merhaba Becout 👋</div>
       <h1>Gelir Gider Tablosu</h1>
     </div>
-    <button class="icon-btn" id="searchBtn">🔍</button>
+    <div style="display:flex; gap:8px;">
+      <button class="icon-btn" id="searchBtn">🔍</button>
+      <button class="icon-btn" id="settingsBtn">⚙️</button>
+    </div>
   </header>
 
   <div class="search-panel" id="searchPanel">
@@ -306,6 +324,30 @@
       <button class="btn-cancel" id="cancelBudget">İptal</button>
       <button class="btn-save" id="saveBudget">Kaydet</button>
     </div>
+  </div>
+</div>
+
+<!-- Settings / backup sheet -->
+<div class="overlay" id="settingsOverlay">
+  <div class="sheet">
+    <div class="grip"></div>
+    <h2>Ayarlar & Yedekleme</h2>
+
+    <div class="info-box" id="dataInfo"></div>
+
+    <button class="big-btn save-style" id="exportBtn">⬇️ Yedeği indir (.json)</button>
+    <p class="hint">Tüm gelir-gider verilerini telefonuna dosya olarak kaydeder. Telefon değişse bile bu dosyadan geri yüklersin.</p>
+
+    <button class="big-btn load-style" id="importBtn">⬆️ Yedeği yükle</button>
+    <input type="file" id="importFile" accept=".json,application/json" style="display:none">
+    <p class="hint">Daha önce indirdiğin yedek dosyasını seçerek verilerini geri getirirsin.</p>
+
+    <div class="reminder-row">
+      <span>🔔 Haftalık "yedek al" hatırlatması</span>
+      <label class="switch"><input type="checkbox" id="remindToggle"><span class="slider"></span></label>
+    </div>
+
+    <button class="btn-cancel big-btn" id="closeSettings" style="margin-top:8px;">Kapat</button>
   </div>
 </div>
 
@@ -675,8 +717,97 @@ document.getElementById('saveBudget').onclick=()=>{
   save(); bOv.classList.remove('show'); render();
 };
 
+// ===== Ayarlar & Yedekleme =====
+const settingsOv=document.getElementById('settingsOverlay');
+
+function updateDataInfo(){
+  const n=state.expenses.length;
+  let last='—';
+  try{ last=localStorage.getItem('sonYedek')||'henüz alınmadı'; }catch(e){}
+  document.getElementById('dataInfo').innerHTML =
+    `📊 Kayıtlı işlem: <b>${n}</b><br>💾 Veriler bu cihazda saklanıyor (silinmedikçe kalır).<br>🗓️ Son yedek: <b>${last}</b>`;
+}
+
+document.getElementById('settingsBtn').onclick=()=>{
+  updateDataInfo();
+  try{ document.getElementById('remindToggle').checked = localStorage.getItem('haftalikHatirlat')==='1'; }catch(e){}
+  settingsOv.classList.add('show');
+};
+document.getElementById('closeSettings').onclick=()=> settingsOv.classList.remove('show');
+settingsOv.onclick=(e)=>{ if(e.target===settingsOv) settingsOv.classList.remove('show'); };
+
+// Yedek indir
+document.getElementById('exportBtn').onclick=()=>{
+  const payload={ uygulama:'Gelir Gider Tablosu', surum:1, tarih:new Date().toISOString(), veri:state };
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const d=new Date();
+  const ad=`gelir-gider-yedek-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
+  a.href=url; a.download=ad; a.click();
+  URL.revokeObjectURL(url);
+  const damga=`${d.getDate()}.${d.getMonth()+1}.${d.getFullYear()}`;
+  try{ localStorage.setItem('sonYedek',damga); }catch(e){}
+  updateDataInfo();
+  alert('Yedek indirildi: '+ad+'\n\nBu dosyayı güvenli bir yere (e-posta, bulut, vb.) kopyalaman önerilir.');
+};
+
+// Yedek yükle
+document.getElementById('importBtn').onclick=()=> document.getElementById('importFile').click();
+document.getElementById('importFile').onchange=(e)=>{
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const obj=JSON.parse(reader.result);
+      const yeni = obj.veri || obj; // hem yeni hem ham format
+      if(!yeni.expenses){ alert('Bu dosya geçerli bir yedek değil.'); return; }
+      const mevcut=state.expenses.length;
+      const gelen=yeni.expenses.length;
+      if(confirm(`Yedekte ${gelen} işlem var. Şu an ${mevcut} işlemin kayıtlı.\n\nYedekteki verilerle BİRLEŞTİRMEK için Tamam'a bas. (Aynı işlemler tekrar eklenmez.)`)){
+        // birleştir - id bazlı tekilleştir
+        const harita={};
+        [...state.expenses, ...yeni.expenses].forEach(x=>{ harita[x.id]=x; });
+        state.expenses=Object.values(harita);
+        // bütçeleri de birleştir (yedektekiler öncelikli değil, mevcut korunur)
+        state.budgets=Object.assign({}, yeni.budgets||{}, state.budgets||{});
+        save(); render(); updateDataInfo();
+        alert('Veriler başarıyla geri yüklendi! Toplam işlem: '+state.expenses.length);
+      }
+    }catch(err){ alert('Dosya okunamadı: '+err.message); }
+    e.target.value='';
+  };
+  reader.readAsText(file);
+};
+
+// Haftalık hatırlatıcı
+document.getElementById('remindToggle').onchange=(e)=>{
+  try{
+    if(e.target.checked){ localStorage.setItem('haftalikHatirlat','1'); if(!localStorage.getItem('sonYedek')) localStorage.setItem('hatirlatBaslangic', Date.now()+''); }
+    else localStorage.removeItem('haftalikHatirlat');
+  }catch(err){}
+};
+
+// Açılışta hatırlatma kontrolü (7 günde bir)
+function hatirlatmaKontrol(){
+  try{
+    if(localStorage.getItem('haftalikHatirlat')!=='1') return;
+    const son=localStorage.getItem('sonHatirlatma');
+    const simdi=Date.now();
+    if(!son || (simdi-parseInt(son))>7*24*60*60*1000){
+      setTimeout(()=>{
+        if(confirm('🔔 Haftalık hatırlatma: Verilerini kaybetmemek için yedek almak ister misin?\n\nTamam → Ayarlar açılır, "Yedeği indir"e bas.')){
+          updateDataInfo(); settingsOv.classList.add('show');
+        }
+        localStorage.setItem('sonHatirlatma',simdi+'');
+      }, 1500);
+    }
+  }catch(e){}
+}
+
 setType('gider');
 render();
+hatirlatmaKontrol();
 </script>
 </body>
 </html>
