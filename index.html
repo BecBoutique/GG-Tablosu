@@ -271,6 +271,18 @@
       <input type="date" id="inDate">
     </div>
     <div class="field">
+      <label>Ödeme yöntemi <span style="text-transform:none;color:var(--muted);font-weight:600">(isteğe bağlı)</span></label>
+      <select id="inPay">
+        <option value="">— Seçilmedi —</option>
+        <option value="Garanti KK">Garanti KK</option>
+        <option value="Enpara HK">Enpara HK</option>
+        <option value="Enpara KK">Enpara KK</option>
+        <option value="Lunapin KK">Lunapin KK</option>
+        <option value="ING HK">ING HK</option>
+        <option value="Nakit">Nakit</option>
+      </select>
+    </div>
+    <div class="field">
       <label>Kategori</label>
       <div class="cat-grid" id="catGrid"></div>
     </div>
@@ -387,7 +399,8 @@ function expRow(x, showDate){
   const sign = isIn ? '+' : '';
   const showAmt = sign + sym + fmt(fromTRY(x.tryAmount));
   const orig = x.cur !== displayCur ? `<span class="orig">${origSym}${fmt(x.amount)}</span>` : '';
-  const dateStr = showDate ? `${cat.n} · ${dd} ${MONTHS[mm-1].slice(0,3)}` : cat.n;
+  const payTag = x.pay ? ` · 💳 ${x.pay}` : '';
+  const dateStr = showDate ? `${cat.n}${payTag} · ${dd} ${MONTHS[mm-1].slice(0,3)}` : `${cat.n}${payTag}`;
   const badge = isIn ? '<span class="badge in">↑</span>' : '<span class="badge out">↓</span>';
   return `<div class="exp">
     <div class="ic" style="background:${cat.c}55">${cat.e}${badge}</div>
@@ -548,7 +561,7 @@ function renderSearch(){
   if(!q){ cnt.textContent=''; res.innerHTML=''; return; }
   const matches=state.expenses.filter(x=>{
     const cat=findCat(x);
-    return (x.desc||'').toLowerCase().includes(q) || (cat&&cat.n.toLowerCase().includes(q));
+    return (x.desc||'').toLowerCase().includes(q) || (cat&&cat.n.toLowerCase().includes(q)) || (x.pay||'').toLowerCase().includes(q);
   }).sort((a,b)=>b.date.localeCompare(a.date));
   const inT=matches.filter(x=>x.type==='gelir').reduce((s,x)=>s+x.tryAmount,0);
   const outT=matches.filter(x=>x.type!=='gelir').reduce((s,x)=>s+x.tryAmount,0);
@@ -625,6 +638,7 @@ function openAdd(dateStr, type){
   document.getElementById('inDate').value = dateStr || todayStr();
   document.getElementById('inAmount').value='';
   document.getElementById('inDesc').value='';
+  document.getElementById('inPay').value='';
   addOv.classList.add('show');
 }
 document.getElementById('openAdd').onclick=()=> openAdd();
@@ -636,7 +650,7 @@ document.getElementById('saveAdd').onclick=()=>{
   if(!amt||amt<=0){ alert('Geçerli bir tutar gir.'); return; }
   const cur=document.getElementById('inCur').value;
   const date=document.getElementById('inDate').value||todayStr();
-  state.expenses.push({ id:Date.now()+''+Math.floor(Math.random()*1000), type:pickedType, amount:amt, cur, tryAmount:toTRY(amt,cur), desc:document.getElementById('inDesc').value.trim(), cat:pickedCat, date, month:date.slice(0,7) });
+  state.expenses.push({ id:Date.now()+''+Math.floor(Math.random()*1000), type:pickedType, amount:amt, cur, tryAmount:toTRY(amt,cur), desc:document.getElementById('inDesc').value.trim(), cat:pickedCat, pay:document.getElementById('inPay').value, date, month:date.slice(0,7) });
   save();
   const [vy,vm,vd]=date.split('-').map(Number);
   viewDate=new Date(vy, vm-1, vd);
